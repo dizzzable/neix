@@ -41,6 +41,12 @@ Linux и macOS: добавьте подписку своего провайде�
 Все файлы — на странице [релизов](https://github.com/dizzzable/neix/releases). Сборки подписаны; NEIX
 обновляется сам и принимает только обновления, подписанные нашим ключом.
 
+## Логотип и иконки
+
+Знак NEIX, надпись и все 27 иконок приложения в SVG — в папке [brand/](brand/), там же
+правила: использовать можно, чтобы указать на NEIX (обзоры, инструкции, «Подключайтесь через
+NEIX» у провайдера), но не как логотип своего продукта.
+
 ## Лицензия
 
 NEIX бесплатен; исходный код приложения закрыт. Условия — в
@@ -60,5 +66,7 @@ ads, no sign-up, no servers of ours: NEIX is only a client.
 [Download the latest release](https://github.com/dizzzable/neix/releases/latest). Free of charge; the
 application's source is closed ([LICENSE.md](LICENSE.md)). The engine is our fork of
 Xray-core (MPL-2.0); its source ships with every release (`xray-core-src-….tar.gz`).
+The NEIX mark, wordmark and all 27 app icons are in [brand/](brand/) as SVG, with the rules for
+using them (to refer to NEIX, not as your own product's logo).
 
 </details>
