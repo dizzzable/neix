@@ -1,0 +1,107 @@
+# macOS builds for a NEIX release: Apple Silicon and Intel.
+#
+# The app's code lives in a private repository; this public one holds the releases, and its
+# macOS runners are free. Run by hand (Actions → macOS → Run workflow) with the release tag:
+# the job checks the tag out read-only (a deploy key of that repository), builds the dmg and
+# the updater's .app.tar.gz for both architectures, adds them to the release and rewrites
+# its latest.json with the macOS entries. Nothing of the source is kept or published here.
+name: macOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag (v0.5.2 …)
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: macOS dmg (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: Apple Silicon
+            target: aarch64-apple-darwin
+          - arch: Intel
+            target: x86_64-apple-darwin
+    runs-on: macos-latest
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: dizzzable/neix-power
+          ref: ${{ inputs.tag }}
+          ssh-key: ${{ secrets.NEIX_SOURCE_KEY }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: engine/go.mod
+          cache: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Build
+        working-directory: apps/neix
+        run: |
+          npm ci
+          npm run engine -- --target ${{ matrix.target }}
+          npm run daemon -- --target ${{ matrix.target }}
+          npm run geo
+          npx tauri build --target ${{ matrix.target }} --config src-tauri/tauri.updater.conf.json
+      - name: The files of the release
+        run: |
+          arch=$([ "${{ matrix.target }}" = aarch64-apple-darwin ] && echo aarch64 || echo x64)
+          ver=$(jq -r .version apps/neix/src-tauri/tauri.conf.json)
+          [ "v$ver" = "${{ inputs.tag }}" ] || { echo "the tag is not version $ver"; exit 1; }
+          mkdir out
+          cp target/${{ matrix.target }}/release/bundle/dmg/*.dmg out/
+          cd target/${{ matrix.target }}/release/bundle/macos
+          cp NEIX.app.tar.gz "$GITHUB_WORKSPACE/out/NEIX_${ver}_${arch}.app.tar.gz"
+          cp NEIX.app.tar.gz.sig "$GITHUB_WORKSPACE/out/NEIX_${ver}_${arch}.app.tar.gz.sig"
+          ls -la "$GITHUB_WORKSPACE/out"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: macos-${{ matrix.target }}
+          path: out/*
+          retention-days: 1
+          if-no-files-found: error
+
+  publish:
+    name: Add to the release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          path: macos
+          merge-multiple: true
+      - name: Upload the macOS files
+        run: gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber macos/*
+      - name: latest.json with the macOS entries
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern latest.json --dir old
+          for sig in macos/*.app.tar.gz.sig; do
+            file=$(basename "$sig" .sig)
+            arch=$(case "$file" in *_aarch64.app.tar.gz) echo darwin-aarch64 ;; *) echo darwin-x86_64 ;; esac)
+            url="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$file"
+            jq --arg key "$arch" --arg sig "$(cat "$sig")" --arg url "$url" \
+              '.platforms[$key] = {signature: $sig, url: $url} | .platforms[$key + "-app"] = .platforms[$key]' \
+              old/latest.json > new.json
+            mv new.json old/latest.json
+          done
+          jq '.platforms | keys' old/latest.json
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber old/latest.json
