@@ -53,6 +53,7 @@ jobs:
         working-directory: apps/neix
         run: |
           npm ci
+          npm run openflux -- --target ${{ matrix.target }}
           npm run engine -- --target ${{ matrix.target }}
           npm run daemon -- --target ${{ matrix.target }}
           npm run geo
