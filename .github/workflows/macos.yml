@@ -32,6 +32,8 @@ jobs:
     env:
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      # The age key subscriptions encrypted for NEIX open with (build.rs in neix-power).
+      NEIX_SUBSCRIPTION_KEY: ${{ secrets.NEIX_SUBSCRIPTION_KEY }}
     steps:
       - uses: actions/checkout@v7
         with:
