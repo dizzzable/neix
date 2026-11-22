@@ -41,10 +41,7 @@ jobs:
           ref: ${{ inputs.tag }}
           ssh-key: ${{ secrets.NEIX_SOURCE_KEY }}
           persist-credentials: false
-      # Rust 1.100 moved build scripts' OUT_DIR one level deeper; tauri-build before 2.7 then
-      # copies the sidecars into target/<triple>/release/build and fails. 1.99.1 until NEIX
-      # moves to tauri-build 2.7.
-      - uses: dtolnay/rust-toolchain@1.99.1
+      - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
       - uses: actions/setup-go@v7
